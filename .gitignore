@@ -1,0 +1,75 @@
+
+# ==============================
+# .NET / C#
+# ==============================
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rtifacts/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / IntelliJ
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# .NET generated files
+project.lock.json
+project.fragment.lock.json
+artifacts/
+GeneratedFiles/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Logs
+*.log
+
+# ==============================
+# Blazor
+# ==============================
+
+# WebAssembly build output
+wwwroot/_framework/
+
+# Generated static web assets
+wwwroot/_content/
+
+# ==============================
+# Secrets / Environment
+# ==============================
+
+.env
+.env.*
+!.env.example
+secrets.json
+appsettings.*.local.json
+
+# User-specific settings
+*.local.json
+
+# ==============================
+# OS files
+# ==============================
+
+.DS_Store
+Thumbs.db
+desktop.ini

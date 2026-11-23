@@ -1,0 +1,553 @@
+
+@page "/"
+
+@rendermode InteractiveServer
+
+@using EquipmentManagement.Domain.Entities
+@using EquipmentManagement.Domain.Enums
+@using EquipmentManagement.Front.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject EquipmentService EquipmentService
+@inject IJSRuntime JS
+
+<PageTitle>Учет оборудования</PageTitle>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Учет оборудования</h2>
+
+        <button class="btn btn-primary" @onclick="OpenCreateForm">
+            <i class="bi bi-plus-circle"></i>
+            Добавить оборудование
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Загрузка оборудования...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Статистика -->
+        <div class="row mb-4">
+
+            <div class="col-md-3 mb-2">
+                <div class="card text-bg-primary">
+                    <div class="card-body">
+                        <h6>Всего оборудования</h6>
+                        <h3>@equipmentList.Count</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-2">
+                <div class="card text-bg-success">
+                    <div class="card-body">
+                        <h6>Новое</h6>
+                        <h3>@CountByStatus(EquipmentStatus.New)</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-2">
+                <div class="card text-bg-info">
+                    <div class="card-body">
+                        <h6>Используется</h6>
+                        <h3>@CountByStatus(EquipmentStatus.InUse)</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-2">
+                <div class="card text-bg-warning">
+                    <div class="card-body">
+                        <h6>В ремонте</h6>
+                        <h3>@CountByStatus(EquipmentStatus.UnderRepair)</h3>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Поиск и фильтр -->
+        <div class="card mb-3">
+            <div class="card-body">
+
+                <div class="row">
+
+                    <div class="col-md-8 mb-2">
+                        <input class="form-control"
+                               placeholder="Поиск по названию или инвентарному номеру..."
+                               @bind="searchText"
+                               @bind:event="oninput" />
+                    </div>
+
+                    <div class="col-md-4 mb-2">
+                        <select class="form-select"
+                                @bind="selectedStatus">
+                            <option value="">Все статусы</option>
+
+                            @foreach (var status in Enum.GetValues<EquipmentStatus>())
+                            {
+                                <option value="@status">
+                                    @GetStatusName(status)
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="card">
+
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Список оборудования</h5>
+            </div>
+
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table table-hover table-bordered align-middle">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Инвентарный номер</th>
+                                <th>Категория</th>
+                                <th>Дата покупки</th>
+                                <th>Статус</th>
+                                <th>Местоположение</th>
+                                <th>Ответственный</th>
+                                <th>Примечания</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @if (FilteredEquipment.Any())
+                            {
+                                @foreach (var item in FilteredEquipment)
+                                {
+                                    <tr>
+                                        <td>@item.Id</td>
+
+                                        <td>
+                                            <strong>@item.Name</strong>
+                                        </td>
+
+                                        <td>@item.InventoryNumber</td>
+
+                                        <td>@item.Category</td>
+
+                                        <td>
+                                            @item.PurchaseDate.ToString("dd.MM.yyyy")
+                                        </td>
+
+                                        <td>
+                                            <span class="badge @GetStatusClass(item.Status)">
+                                                @GetStatusName(item.Status)
+                                            </span>
+                                        </td>
+
+                                        <td>@item.Location</td>
+
+                                        <td>@item.ResponsiblePerson</td>
+
+                                        <td>@item.Notes</td>
+
+                                        <td>
+                                            <div class="d-flex gap-1">
+                                                <button class="btn btn-sm btn-warning"
+                                                        title="Редактировать"
+                                                        @onclick="() => OpenEditForm(item)">
+                                                    Изменить
+                                                </button>
+
+                                                <button class="btn btn-sm btn-danger"
+                                                        title="Удалить"
+                                                        @onclick="() => DeleteEquipment(item.Id)">
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted p-4">
+                                        Оборудование не найдено
+                                    </td>
+                                </tr>
+                            }
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="text-muted">
+                    Показано записей: @FilteredEquipment.Count()
+                </div>
+
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Форма добавления и редактирования -->
+@if (showForm)
+{
+    <div class="modal d-block"
+         tabindex="-1"
+         style="background-color: rgba(0,0,0,0.5);">
+
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        @(isEditing
+                            ? "Редактирование оборудования"
+                            : "Добавление оборудования")
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            @onclick="CloseForm">
+                    </button>
+
+                </div>
+
+                <EditForm Model="currentEquipment"
+                          OnValidSubmit="SaveEquipment">
+
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="modal-body">
+
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Название</label>
+
+                                <InputText class="form-control"
+                                           @bind-Value="currentEquipment.Name" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Инвентарный номер</label>
+
+                                <InputText class="form-control"
+                                           @bind-Value="currentEquipment.InventoryNumber" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Категория</label>
+
+                                <InputText class="form-control"
+                                           @bind-Value="currentEquipment.Category" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Дата покупки</label>
+
+                                <InputDate class="form-control"
+                                           @bind-Value="currentEquipment.PurchaseDate" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Статус</label>
+
+                                <InputSelect class="form-select"
+                                             @bind-Value="currentEquipment.Status">
+
+                                    @foreach (var status in Enum.GetValues<EquipmentStatus>())
+                                    {
+                                        <option value="@status">
+                                            @GetStatusName(status)
+                                        </option>
+                                    }
+
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Местоположение</label>
+
+                                <InputText class="form-control"
+                                           @bind-Value="currentEquipment.Location" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Ответственное лицо</label>
+
+                                <InputText class="form-control"
+                                           @bind-Value="currentEquipment.ResponsiblePerson" />
+                            </div>
+
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Примечания</label>
+
+                                <InputTextArea class="form-control"
+                                               rows="3"
+                                               @bind-Value="currentEquipment.Notes" />
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @onclick="CloseForm">
+                            Отмена
+                        </button>
+
+                        <button type="submit"
+                                class="btn btn-primary"
+                                disabled="@isSaving">
+
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1">Сохранение...</span>
+                            }
+                            else
+                            {
+                                @(isEditing ? "Сохранить изменения" : "Добавить")
+                            }
+
+                        </button>
+
+                    </div>
+
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    private List<Equipment> equipmentList = new();
+
+    private Equipment currentEquipment = new();
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showForm = false;
+    private bool isEditing = false;
+
+    private string searchText = "";
+    private string selectedStatus = "";
+    private string errorMessage = "";
+
+    // Фильтрация оборудования
+    private IEnumerable<Equipment> FilteredEquipment =>
+        equipmentList.Where(e =>
+            (
+                string.IsNullOrWhiteSpace(searchText) ||
+                (e.Name ?? "").Contains(
+                    searchText,
+                    StringComparison.OrdinalIgnoreCase) ||
+                (e.InventoryNumber ?? "").Contains(
+                    searchText,
+                    StringComparison.OrdinalIgnoreCase)
+            )
+            &&
+            (
+                string.IsNullOrEmpty(selectedStatus) ||
+                e.Status.ToString() == selectedStatus
+            )
+        );
+
+    // Загрузка при открытии страницы
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEquipment();
+    }
+
+    // Получение оборудования через сервис
+    private async Task LoadEquipment()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = "";
+
+            equipmentList = await EquipmentService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Подсчет по статусу
+    private int CountByStatus(EquipmentStatus status)
+    {
+        return equipmentList.Count(e => e.Status == status);
+    }
+
+    // Открытие формы добавления
+    private void OpenCreateForm()
+    {
+        currentEquipment = new Equipment
+        {
+            Name = "",
+            InventoryNumber = "",
+            Category = "",
+            Location = "",
+            ResponsiblePerson = "",
+            PurchaseDate = DateTime.Today,
+            Status = EquipmentStatus.New
+        };
+
+        isEditing = false;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    // Открытие формы редактирования
+    private void OpenEditForm(Equipment item)
+    {
+        currentEquipment = new Equipment
+        {
+            Id = item.Id,
+            Name = item.Name,
+            InventoryNumber = item.InventoryNumber,
+            Category = item.Category,
+            Location = item.Location,
+            ResponsiblePerson = item.ResponsiblePerson,
+            PurchaseDate = item.PurchaseDate,
+            Status = item.Status,
+            Notes = item.Notes
+        };
+
+        isEditing = true;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    // Добавление или обновление
+    private async Task SaveEquipment()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = "";
+
+            if (isEditing)
+            {
+                await EquipmentService.UpdateAsync(
+                    currentEquipment.Id,
+                    currentEquipment);
+            }
+            else
+            {
+                await EquipmentService.CreateAsync(currentEquipment);
+            }
+
+            showForm = false;
+
+            await LoadEquipment();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // Удаление оборудования
+    private async Task DeleteEquipment(int id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Вы действительно хотите удалить это оборудование?");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            errorMessage = "";
+
+            await EquipmentService.DeleteAsync(id);
+
+            await LoadEquipment();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка удаления: {ex.Message}";
+        }
+    }
+
+    // Закрытие формы
+    private void CloseForm()
+    {
+        showForm = false;
+        currentEquipment = new Equipment();
+    }
+
+    // Названия статусов
+    private string GetStatusName(EquipmentStatus status)
+    {
+        return status switch
+        {
+            EquipmentStatus.New => "Новое",
+            EquipmentStatus.InUse => "Используется",
+            EquipmentStatus.UnderRepair => "В ремонте",
+            EquipmentStatus.Decommissioned => "Списано",
+            _ => "Неизвестно"
+        };
+    }
+
+    // Цвета статусов
+    private string GetStatusClass(EquipmentStatus status)
+    {
+        return status switch
+        {
+            EquipmentStatus.New => "bg-success",
+            EquipmentStatus.InUse => "bg-primary",
+            EquipmentStatus.UnderRepair => "bg-warning text-dark",
+            EquipmentStatus.Decommissioned => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}
