@@ -56,6 +56,73 @@ namespace EquipmentManagement.Infrastructure.Migrations
 
                     b.ToTable("Equipments");
                 });
+
+            modelBuilder.Entity("EquipmentManagement.Domain.Entities.Room", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Building")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Floor")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Rooms");
+                });
+
+            modelBuilder.Entity("EquipmentManagement.Domain.Entities.Software", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LicenseCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LicenseExpirationDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LicenseKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Software");
+                });
 #pragma warning restore 612, 618
         }
     }

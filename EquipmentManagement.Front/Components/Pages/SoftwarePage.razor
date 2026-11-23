@@ -1,0 +1,422 @@
+
+@page "/software"
+@rendermode InteractiveServer
+
+@using EquipmentManagement.Domain.Entities
+@using EquipmentManagement.Front.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject SoftwareService SoftwareService
+@inject IJSRuntime JS
+
+<PageTitle>Учет программного обеспечения</PageTitle>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Учет программного обеспечения</h2>
+
+        <button class="btn btn-primary" @onclick="OpenCreateForm">
+            <i class="bi bi-plus-circle"></i>
+            Добавить ПО
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Загрузка программного обеспечения...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-primary">
+                    <div class="card-body">
+                        <h6>Всего программ</h6>
+                        <h3>@softwareList.Count</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-success">
+                    <div class="card-body">
+                        <h6>Всего лицензий</h6>
+                        <h3>@softwareList.Sum(s => s.LicenseCount)</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-warning">
+                    <div class="card-body">
+                        <h6>Истекают в ближайшие 30 дней</h6>
+                        <h3>@ExpiringLicensesCount</h3>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <input class="form-control"
+                       placeholder="Поиск по названию или категории..."
+                       @bind="searchText"
+                       @bind:event="oninput" />
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Список программного обеспечения</h5>
+            </div>
+
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Версия</th>
+                                <th>Категория</th>
+                                <th>Количество лицензий</th>
+                                <th>Окончание лицензии</th>
+                                <th>Примечания</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (FilteredSoftware.Any())
+                            {
+                                @foreach (var item in FilteredSoftware)
+                                {
+                                    <tr>
+                                        <td>@item.Id</td>
+
+                                        <td>
+                                            <strong>@item.Name</strong>
+                                        </td>
+
+                                        <td>@item.Version</td>
+                                        <td>@item.Category</td>
+                                        <td>@item.LicenseCount</td>
+
+                                        <td>
+                                            @if (item.LicenseExpirationDate.HasValue)
+                                            {
+                                                <span class="badge @GetLicenseClass(item.LicenseExpirationDate)">
+                                                    @item.LicenseExpirationDate.Value.ToString("dd.MM.yyyy")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Не указано</span>
+                                            }
+                                        </td>
+
+                                        <td>@item.Notes</td>
+
+                                        <td>
+                                            <div class="d-flex gap-1">
+                                                <button class="btn btn-sm btn-warning"
+                                                        @onclick="() => OpenEditForm(item)">
+                                                    Изменить
+                                                </button>
+
+                                                <button class="btn btn-sm btn-danger"
+                                                        @onclick="() => DeleteSoftware(item.Id)">
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted p-4">
+                                        Программное обеспечение не найдено
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+
+                    </table>
+                </div>
+
+                <div class="text-muted">
+                    Показано записей: @FilteredSoftware.Count()
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showForm)
+{
+    <div class="modal d-block"
+         tabindex="-1"
+         style="background-color: rgba(0,0,0,0.5);">
+
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(isEditing
+                            ? "Редактирование ПО"
+                            : "Добавление ПО")
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            @onclick="CloseForm">
+                    </button>
+                </div>
+
+                <EditForm Model="currentSoftware"
+                          OnValidSubmit="SaveSoftware">
+
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="modal-body">
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Название</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentSoftware.Name" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Версия</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentSoftware.Version" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Категория</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentSoftware.Category" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Количество лицензий</label>
+                                <InputNumber class="form-control"
+                                             @bind-Value="currentSoftware.LicenseCount" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Ключ лицензии</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentSoftware.LicenseKey" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Дата окончания лицензии</label>
+                                <InputDate class="form-control"
+                                           @bind-Value="currentSoftware.LicenseExpirationDate" />
+                            </div>
+
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Примечания</label>
+                                <InputTextArea class="form-control"
+                                               rows="3"
+                                               @bind-Value="currentSoftware.Notes" />
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @onclick="CloseForm">
+                            Отмена
+                        </button>
+
+                        <button type="submit"
+                                class="btn btn-primary"
+                                disabled="@isSaving">
+
+                            @(isSaving ? "Сохранение..." :
+                                isEditing ? "Сохранить изменения" : "Добавить")
+
+                        </button>
+
+                    </div>
+
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Software> softwareList = new();
+    private Software currentSoftware = new();
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showForm = false;
+    private bool isEditing = false;
+
+    private string searchText = "";
+    private string errorMessage = "";
+
+    private IEnumerable<Software> FilteredSoftware =>
+        softwareList.Where(s =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (s.Name ?? "").Contains(searchText,
+                StringComparison.OrdinalIgnoreCase) ||
+            (s.Category ?? "").Contains(searchText,
+                StringComparison.OrdinalIgnoreCase));
+
+    private int ExpiringLicensesCount =>
+        softwareList.Count(s =>
+            s.LicenseExpirationDate.HasValue &&
+            s.LicenseExpirationDate.Value.Date >= DateTime.Today &&
+            s.LicenseExpirationDate.Value.Date <= DateTime.Today.AddDays(30));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSoftware();
+    }
+
+    private async Task LoadSoftware()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = "";
+
+            softwareList = await SoftwareService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenCreateForm()
+    {
+        currentSoftware = new Software();
+        isEditing = false;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    private void OpenEditForm(Software item)
+    {
+        currentSoftware = new Software
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Version = item.Version,
+            LicenseKey = item.LicenseKey,
+            LicenseExpirationDate = item.LicenseExpirationDate,
+            LicenseCount = item.LicenseCount,
+            Category = item.Category,
+            Notes = item.Notes
+        };
+
+        isEditing = true;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    private async Task SaveSoftware()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = "";
+
+            if (isEditing)
+            {
+                await SoftwareService.UpdateAsync(
+                    currentSoftware.Id,
+                    currentSoftware);
+            }
+            else
+            {
+                await SoftwareService.CreateAsync(currentSoftware);
+            }
+
+            showForm = false;
+            await LoadSoftware();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteSoftware(int id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Вы действительно хотите удалить это программное обеспечение?");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            errorMessage = "";
+
+            await SoftwareService.DeleteAsync(id);
+            await LoadSoftware();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка удаления: {ex.Message}";
+        }
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        currentSoftware = new Software();
+    }
+
+    private string GetLicenseClass(DateTime? expirationDate)
+    {
+        if (!expirationDate.HasValue)
+            return "bg-secondary";
+
+        if (expirationDate.Value.Date < DateTime.Today)
+            return "bg-danger";
+
+        if (expirationDate.Value.Date <= DateTime.Today.AddDays(30))
+            return "bg-warning text-dark";
+
+        return "bg-success";
+    }
+}

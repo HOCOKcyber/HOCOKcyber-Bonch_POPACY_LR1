@@ -18,6 +18,8 @@ builder.Services.AddScoped(sp =>
       .CreateClient("EquipmentAPI"));
 
 builder.Services.AddScoped<EquipmentService>();
+builder.Services.AddScoped<RoomService>();
+builder.Services.AddScoped<SoftwareService>();
 
 var app = builder.Build();
 

@@ -1,0 +1,380 @@
+
+@page "/rooms"
+@rendermode InteractiveServer
+
+@using EquipmentManagement.Domain.Entities
+@using EquipmentManagement.Domain.Enums
+@using EquipmentManagement.Front.Services
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject RoomService RoomService
+@inject IJSRuntime JS
+
+<PageTitle>Учет аудиторий</PageTitle>
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Учет аудиторий</h2>
+
+        <button class="btn btn-primary" @onclick="OpenCreateForm">
+            <i class="bi bi-plus-circle"></i>
+            Добавить аудиторию
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Загрузка аудиторий...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-primary">
+                    <div class="card-body">
+                        <h6>Всего аудиторий</h6>
+                        <h3>@roomList.Count</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-success">
+                    <div class="card-body">
+                        <h6>Общая вместимость</h6>
+                        <h3>@roomList.Sum(r => r.Capacity)</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-2">
+                <div class="card text-bg-info">
+                    <div class="card-body">
+                        <h6>Компьютерные классы</h6>
+                        <h3>@roomList.Count(r => r.Type == RoomType.ComputerLab)</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <input class="form-control"
+                       placeholder="Поиск по названию или корпусу..."
+                       @bind="searchText"
+                       @bind:event="oninput" />
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Список аудиторий</h5>
+            </div>
+
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Название</th>
+                                <th>Корпус</th>
+                                <th>Этаж</th>
+                                <th>Вместимость</th>
+                                <th>Тип</th>
+                                <th>Примечания</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @if (FilteredRooms.Any())
+                            {
+                                @foreach (var item in FilteredRooms)
+                                {
+                                    <tr>
+                                        <td>@item.Id</td>
+                                        <td><strong>@item.Name</strong></td>
+                                        <td>@item.Building</td>
+                                        <td>@item.Floor</td>
+                                        <td>@item.Capacity</td>
+                                        <td>@GetRoomTypeName(item.Type)</td>
+                                        <td>@item.Notes</td>
+                                        <td>
+                                            <div class="d-flex gap-1">
+                                                <button class="btn btn-sm btn-warning"
+                                                        @onclick="() => OpenEditForm(item)">
+                                                    Изменить
+                                                </button>
+
+                                                <button class="btn btn-sm btn-danger"
+                                                        @onclick="() => DeleteRoom(item.Id)">
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted p-4">
+                                        Аудитории не найдены
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="text-muted">
+                    Показано записей: @FilteredRooms.Count()
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showForm)
+{
+    <div class="modal d-block"
+         tabindex="-1"
+         style="background-color: rgba(0,0,0,0.5);">
+
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(isEditing ? "Редактирование аудитории" : "Добавление аудитории")
+                    </h5>
+
+                    <button type="button"
+                            class="btn-close"
+                            @onclick="CloseForm">
+                    </button>
+                </div>
+
+                <EditForm Model="currentRoom" OnValidSubmit="SaveRoom">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="modal-body">
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Название</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentRoom.Name" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Корпус</label>
+                                <InputText class="form-control"
+                                           @bind-Value="currentRoom.Building" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Этаж</label>
+                                <InputNumber class="form-control"
+                                             @bind-Value="currentRoom.Floor" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Вместимость</label>
+                                <InputNumber class="form-control"
+                                             @bind-Value="currentRoom.Capacity" />
+                            </div>
+
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Тип аудитории</label>
+                                <InputSelect class="form-select"
+                                             @bind-Value="currentRoom.Type">
+                                    @foreach (var type in Enum.GetValues<RoomType>())
+                                    {
+                                        <option value="@type">
+                                            @GetRoomTypeName(type)
+                                        </option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Примечания</label>
+                                <InputTextArea class="form-control"
+                                               rows="3"
+                                               @bind-Value="currentRoom.Notes" />
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @onclick="CloseForm">
+                            Отмена
+                        </button>
+
+                        <button type="submit"
+                                class="btn btn-primary"
+                                disabled="@isSaving">
+                            @(isSaving ? "Сохранение..." :
+                                isEditing ? "Сохранить изменения" : "Добавить")
+                        </button>
+                    </div>
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Room> roomList = new();
+    private Room currentRoom = new();
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool showForm = false;
+    private bool isEditing = false;
+
+    private string searchText = "";
+    private string errorMessage = "";
+
+    private IEnumerable<Room> FilteredRooms =>
+        roomList.Where(r =>
+            string.IsNullOrWhiteSpace(searchText) ||
+            (r.Name ?? "").Contains(searchText,
+                StringComparison.OrdinalIgnoreCase) ||
+            (r.Building ?? "").Contains(searchText,
+                StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRooms();
+    }
+
+    private async Task LoadRooms()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = "";
+            roomList = await RoomService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenCreateForm()
+    {
+        currentRoom = new Room();
+        isEditing = false;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    private void OpenEditForm(Room item)
+    {
+        currentRoom = new Room
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Building = item.Building,
+            Floor = item.Floor,
+            Capacity = item.Capacity,
+            Type = item.Type,
+            Notes = item.Notes
+        };
+
+        isEditing = true;
+        errorMessage = "";
+        showForm = true;
+    }
+
+    private async Task SaveRoom()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = "";
+
+            if (isEditing)
+            {
+                await RoomService.UpdateAsync(currentRoom.Id, currentRoom);
+            }
+            else
+            {
+                await RoomService.CreateAsync(currentRoom);
+            }
+
+            showForm = false;
+            await LoadRooms();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка сохранения: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteRoom(int id)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Вы действительно хотите удалить эту аудиторию?");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            errorMessage = "";
+            await RoomService.DeleteAsync(id);
+            await LoadRooms();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка удаления: {ex.Message}";
+        }
+    }
+
+    private void CloseForm()
+    {
+        showForm = false;
+        currentRoom = new Room();
+    }
+
+    private string GetRoomTypeName(RoomType type)
+    {
+        return type switch
+        {
+            RoomType.LectureHall => "Лекционная аудитория",
+            RoomType.Classroom => "Учебная аудитория",
+            RoomType.ComputerLab => "Компьютерный класс",
+            RoomType.Laboratory => "Лаборатория",
+            _ => "Другое"
+        };
+    }
+}
