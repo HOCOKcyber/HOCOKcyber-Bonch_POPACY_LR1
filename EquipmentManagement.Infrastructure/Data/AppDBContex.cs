@@ -15,4 +15,15 @@ public class AppDbContext : DbContext
     {
         optionsBuilder.UseSqlite("Data Source=equipment.db");
     }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Equipment>()
+            .HasOne(e => e.Room)
+            .WithMany(r => r.Equipments)
+            .HasForeignKey(e => e.RoomId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
 }

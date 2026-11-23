@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EquipmentManagement.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261123151853_InitialCreate")]
+    [Migration("20261123191048_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -26,15 +26,7 @@ namespace EquipmentManagement.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("InventoryNumber")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Location")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -52,10 +44,15 @@ namespace EquipmentManagement.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("RoomId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("Equipments");
                 });
@@ -125,6 +122,22 @@ namespace EquipmentManagement.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Software");
+                });
+
+            modelBuilder.Entity("EquipmentManagement.Domain.Entities.Equipment", b =>
+                {
+                    b.HasOne("EquipmentManagement.Domain.Entities.Room", "Room")
+                        .WithMany("Equipments")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("EquipmentManagement.Domain.Entities.Room", b =>
+                {
+                    b.Navigation("Equipments");
                 });
 #pragma warning restore 612, 618
         }

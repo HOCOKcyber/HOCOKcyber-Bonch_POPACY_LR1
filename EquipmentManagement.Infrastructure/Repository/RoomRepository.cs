@@ -17,6 +17,7 @@ public class RoomRepository : IRoomRepository
     public async Task<IEnumerable<Room>> GetAllAsync()
     {
         return await _context.Rooms
+        .Include(r => r.Equipments)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -24,6 +25,7 @@ public class RoomRepository : IRoomRepository
     public async Task<Room?> GetByIdAsync(int id)
     {
         return await _context.Rooms
+        .Include(r => r.Equipments)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
     }
@@ -43,6 +45,7 @@ public class RoomRepository : IRoomRepository
     public async Task DeleteAsync(int id)
     {
         var room = await _context.Rooms
+        .Include(r => r.Equipments)
             .FirstOrDefaultAsync(r => r.Id == id);
 
         if (room != null)

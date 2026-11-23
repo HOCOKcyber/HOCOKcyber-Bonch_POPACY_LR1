@@ -18,6 +18,7 @@ public class EquipmentRepository : IEquipmentRepository
     public async Task<IEnumerable<Equipment>> GetAllAsync()
     {
         return await _context.Equipments
+            .Include(e => e.Room)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -25,6 +26,7 @@ public class EquipmentRepository : IEquipmentRepository
     public async Task<Equipment?> GetByIdAsync(int id)
     {
         return await _context.Equipments
+        .Include(e => e.Room)
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.Id == id);
     }
@@ -44,6 +46,7 @@ public class EquipmentRepository : IEquipmentRepository
     public async Task DeleteAsync(int id)
     {
         var equipment = await _context.Equipments
+        .Include(e => e.Room)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (equipment != null)

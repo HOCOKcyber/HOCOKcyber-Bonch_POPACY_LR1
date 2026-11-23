@@ -12,4 +12,7 @@ public class Room
     public int Capacity { get; set; }
     public RoomType Type { get; set; }
     public string? Notes { get; set; }
+
+      public ICollection<Equipment> Equipments { get; set; }
+        = new List<Equipment>();
 }
